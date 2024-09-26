@@ -10,6 +10,17 @@
 		"baseUrl": ".",
 		"outDir": "dist",
 		"moduleResolution": "node",
-		"resolveJsonModule": true
+		"resolveJsonModule": true,
+		"strict": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "lestin",
+		"plugins": [
+			{
+				"name": "typescript-plugin-css-modules",
+				"options": {
+					"classnameTransform": "camelCaseOnly"
+				}
+			}
+		],
 	}
 }
