@@ -90,3 +90,17 @@ typings/
 
 # Electron-Forge
 out/
+
+# Other
+node_modules
+node_modules*
+vendor
+**/.pnp.*
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/plugins
+!**/.yarn/releases
+!**/.yarn/sdks
+!**/.yarn/versions
+.parcel-cache
+.cache

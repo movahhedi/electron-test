@@ -3,11 +3,16 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("electronAPI", {
-	openFile: () => ipcRenderer.invoke("dialog:openFile"),
-	saveFile: (path: string, content: string) =>
-		ipcRenderer.invoke("dialog:saveFile", path, content),
-});
+import { type IElectronApi, type IFile } from "../Basics/interface";
+import { IpcCommands } from "../Basics/Ipc";
+
+const electronApi: IElectronApi = {
+	openFile: () => ipcRenderer.invoke(IpcCommands.Openfile),
+	saveFile: (props: IFile) => ipcRenderer.invoke(IpcCommands.Savefile, props),
+	openDevTools: () => ipcRenderer.send(IpcCommands.Opendevtools),
+};
+
+contextBridge.exposeInMainWorld("electronApi", electronApi);
 
 /* window.addEventListener("DOMContentLoaded", () => {
 	const replaceText = (selector: string, text?: string) => {

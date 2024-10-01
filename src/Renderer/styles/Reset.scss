@@ -1,0 +1,18 @@
+// Reset
+
+*,
+*::before,
+*::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	min-width: 0;
+	outline: none;
+}
+
+iframe {
+	border: none;
+	padding: 0;
+}
