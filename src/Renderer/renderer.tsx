@@ -1,54 +1,33 @@
-import DOMPurify from "dompurify";
+import { createRef } from "lestin";
 import * as Monaco from "monaco-editor";
-import { compileStringAsync } from "sass";
 import { ShowSuccessToast } from "toastification";
-
-import ArticleStyles from "./styles/article.scss?inline";
-import x from "./styles/index.module.scss";
-
-// import "vazirmatn/Vazirmatn-font-face.css";
-import("@fortawesome/fontawesome-free/css/all.min.css");
-
-import { createRef } from "lestin/jsx-runtime";
-import { Marked } from "marked";
-import MarkedAlert from "marked-alert";
-//@ts-expect-error
-import MarkedBidi from "marked-bidi";
-import { gfmHeadingId } from "marked-gfm-heading-id";
 
 import { type IFile } from "../Basics/interface";
 
+import { CreateCkeditor } from "./CKEditor";
 import { FontAwesome } from "./FontAwesome";
+import { MarkdownToHtmlDataUri } from "./RenderMarkdown";
+import x from "./styles/index.module.scss";
 
 import "toastification/Toast.css";
-import { CreateCkeditor } from "./CKEditor";
+// import "vazirmatn/Vazirmatn-font-face.css";
 
-//@ts-expect-error
-const articleCss = await compileStringAsync(ArticleStyles);
+import("@fortawesome/fontawesome-free/css/all.min.css");
 
 let currentFile: IFile;
 
-const marked = new Marked({
-	pedantic: false,
-	gfm: true,
-	breaks: true,
-}).use(
-	MarkedBidi(),
-	MarkedAlert(),
-	// markedEmoji({}),
-	gfmHeadingId(),
-	// markedHighlight({
-	// 	 highlight:
-	// }),
-);
-
-// each of these can be toggled on or off
-// toggle buttons will have a class of .active if they are active
+const enum EditorType {
+	None,
+	Monaco,
+	Rtl,
+	Ck,
+	Preview,
+}
 
 //#region Toggle buttons
 let showMonacoEditor = true,
 	showRtlEditor = true,
-	showCkEditor = true,
+	showCkEditor = false,
 	showPreview = true;
 
 function ShowMonacoEditor() {
@@ -64,6 +43,9 @@ function HideMonacoEditor() {
 }
 
 function ShowRtlEditor() {
+	const content = GetMonacoEditorContent();
+	SetRtlEditorContent(content);
+
 	showRtlEditor = true;
 	rtlEditorBoxRef.current!.style.display = "block";
 	toggleRtlEditorButtonRef.current!.classList.add(x.active);
@@ -76,6 +58,9 @@ function HideRtlEditor() {
 }
 
 function ShowCkEditor() {
+	const content = GetMonacoEditorContent();
+	SetCkEditorContent(content);
+
 	showCkEditor = true;
 	ckeditorBoxRef.current!.style.display = "block";
 	toggleCkEditorButtonRef.current!.classList.add(x.active);
@@ -88,12 +73,12 @@ function HideCkEditor() {
 }
 
 function ShowPreview() {
+	const content = GetMonacoEditorContent();
+	RenderPreview(content);
+
 	showPreview = true;
 	previewBoxRef.current!.style.display = "block";
 	togglePreviewButtonRef.current!.classList.add(x.active);
-
-	// render the preview
-	RenderPreviewWithContent();
 }
 
 function HidePreview() {
@@ -139,55 +124,93 @@ function SetMonacoEditorContent(content: string) {
 }
 
 function SetRtlEditorContent(content: string) {
+	if (!showRtlEditor) return;
 	rtlEditorRef.current!.value = content;
 }
 
 function SetCkEditorContent(content: string) {
+	if (!showCkEditor) return;
 	ckeditor.setData(content);
+}
+
+function GetMonacoEditorContent() {
+	return monacoEditor.getValue();
+}
+
+function GetRtlEditorContent() {
+	return rtlEditorRef.current!.value;
+}
+
+function GetCkEditorContent() {
+	return ckeditor.getData();
+}
+
+let onAfterInputTimeout: NodeJS.Timeout | number | undefined;
+function OnMonacoEditorChange() {
+	if (onAfterInputTimeout) {
+		clearTimeout(onAfterInputTimeout);
+	}
+	onAfterInputTimeout = setTimeout(() => {
+		const content = GetMonacoEditorContent();
+		SyncEditors(EditorType.Monaco, content);
+	}, syncDelay);
+}
+
+function OnRtlEditorChange() {
+	if (onAfterInputTimeout) {
+		clearTimeout(onAfterInputTimeout);
+	}
+	onAfterInputTimeout = setTimeout(() => {
+		const content = GetRtlEditorContent();
+		SyncEditors(EditorType.Rtl, content);
+	}, syncDelay);
+}
+
+function OnCkEditorChange() {
+	console.log(123);
+
+	if (onAfterInputTimeout) {
+		clearTimeout(onAfterInputTimeout);
+	}
+	onAfterInputTimeout = setTimeout(() => {
+		const content = GetCkEditorContent();
+		SyncEditors(EditorType.Ck, content);
+	}, syncDelay);
 }
 //#endregion
 
-async function RenderPreviewWithContent() {
-	const content = monacoEditor.getValue();
-	RenderPreview(content);
-}
-
-async function RenderPreview(contentRaw: string) {
+async function RenderPreview(content?: string) {
 	if (!showPreview) return;
 
-	// remove front matter
-	const contentWithoutFrontmatter = contentRaw.replace(
-		/^---\n([\s\S\r\n]*?)\n---[\r?\n?]/,
-		"",
-	);
-
-	const content = await marked.parse(contentWithoutFrontmatter, {
-		pedantic: false,
-		gfm: true,
-		breaks: true,
-	});
-
-	const cleanContent = DOMPurify.sanitize(content, {
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		FORCE_BODY: true,
-	});
-
-	// previewContentRef.current!.innerHTML = cleanContent;
-
-	const contentWithStyle = `${cleanContent}<style>${articleCss.css}</style>`;
-
-	const dataUri =
-		"data:text/html;charset=utf-8," + encodeURIComponent(contentWithStyle);
+	content ??= GetMonacoEditorContent();
+	const dataUri = await MarkdownToHtmlDataUri(content);
 
 	previewContentRef.current!.src = dataUri;
 }
 
-async function OnOpenFile() {
-	// ShowInfoToast("Opening file dialog");
+const syncDelay = 600;
+async function SyncEditors(editor: EditorType = EditorType.None, content?: string) {
+	content ??= GetMonacoEditorContent();
 
+	if (editor !== EditorType.Monaco) {
+		await SetMonacoEditorContent(content);
+	}
+
+	if (editor !== EditorType.Rtl) {
+		await SetRtlEditorContent(content);
+	}
+
+	if (editor !== EditorType.Ck) {
+		await SetCkEditorContent(content);
+	}
+
+	await RenderPreview(content);
+}
+
+async function OnOpenFile() {
 	currentFile = await window.electronApi.openFile();
 
-	// get the file name from the path. The path maybe separated by / or \
+	// Get the file name from the path. The path maybe separated by / or \
 	const fileName = currentFile.path.split(/\\|\//).pop() ?? "Untitled";
 
 	// Get the extension of the file
@@ -206,16 +229,8 @@ async function OnOpenFile() {
 	// Set the language of the editor based on the file extension
 	Monaco.editor.setModelLanguage(Monaco.editor.getModels()[0], language);
 
-	SetMonacoEditorContent(currentFile.content);
-	SetRtlEditorContent(currentFile.content);
-	RenderPreview(currentFile.content);
-
-	// render the markdown preview onChange of the editor (after 500ms of no input)
-	monacoEditor.onDidChangeModelContent(() => {
-		const content = monacoEditor.getValue();
-		RenderPreview(content);
-		SetRtlEditorContent(content);
-	});
+	const content = currentFile.content;
+	SyncEditors(EditorType.None, content);
 
 	monacoEditor.focus();
 
@@ -225,7 +240,7 @@ async function OnOpenFile() {
 				onClick={() => {
 					console.log("Saving file to", path);
 					// const content = textAreaRef.current!.value;
-					const content = monacoEditor.getValue();
+					const content = GetMonacoEditorContent();
 
 					window.electronApi.saveFile(path, content);
 				}}
@@ -274,7 +289,7 @@ const bodyContent = (
 					onClick={async () => {
 						console.log("Saving file");
 						// const content = textAreaRef.current!.value;
-						const content = monacoEditor.getValue();
+						const content = GetMonacoEditorContent();
 
 						window.electronApi.saveFile({
 							...currentFile,
@@ -310,9 +325,9 @@ const bodyContent = (
 					</button>
 
 					<button
-						class={[x.headerButton, showPreview && x.active]}
+						class={[x.headerButton, showCkEditor && x.active]}
 						ref={toggleCkEditorButtonRef}
-						onClick={ToggleMonacoEditor}
+						onClick={ToggleCkEditor}
 						type="button"
 					>
 						CKEditor
@@ -338,9 +353,7 @@ const bodyContent = (
 					class={x.rtlEditor}
 					ref={rtlEditorRef}
 					onInput={() => {
-						const content = rtlEditorRef.current!.value;
-						SetMonacoEditorContent(content);
-						RenderPreview(content);
+						OnRtlEditorChange();
 					}}
 				></textarea>
 			</div>
@@ -367,10 +380,11 @@ const bodyContent = (
 		</div>
 	</div>
 );
+
 document.body.appendChild(bodyContent);
 
 const monacoEditor = Monaco.editor.create(monacoBoxRef.current!, {
-	value: 'console.log("Hello, world");',
+	value: "# Hello, World!",
 	language: "markdown",
 	theme: "vs-dark",
 	automaticLayout: true,
@@ -379,18 +393,15 @@ const monacoEditor = Monaco.editor.create(monacoBoxRef.current!, {
 	},
 	unusualLineTerminators: "off",
 	fontFamily: `Consolas, "Vazir Code", monospace`,
+	fontSize: 15,
 });
 monacoEditor.addCommand(Monaco.KeyMod.CtrlCmd | Monaco.KeyCode.KeyS, () => {
 	ShowSuccessToast("Saved");
 });
 
-// set zoom level
-monacoEditor.updateOptions({
-	fontSize: 15,
-});
+monacoEditor.onDidChangeModelContent(OnMonacoEditorChange);
 
 monacoEditor.focus();
-
 monacoEditor.layout();
 
 function SetTitle(title: string) {
@@ -399,16 +410,39 @@ function SetTitle(title: string) {
 
 // listen for F12 to open dev tools on window
 window.addEventListener("keypress", (e) => {
-	console.log(e.key);
-
 	if (e.key === "F12") {
 		// open dev tools
 		window.electronApi.openDevTools();
 	}
 });
 
+//@ts-expect-error
 const ckeditor = await CreateCkeditor(ckeditorRef.current!);
+// ckeditor.on("change", OnCkEditorChange);
+// ckeditor.model.document.on("change:data", OnCkEditorChange);
+// ckeditor.model.document.on("change", OnCkEditorChange);
+// ckeditor.model.document.on("key", OnCkEditorChange);
+// ckeditor.on("key", OnCkEditorChange);
 
+if (!showMonacoEditor) {
+	HideMonacoEditor();
+}
+
+if (!showRtlEditor) {
+	HideRtlEditor();
+}
+
+if (!showCkEditor) {
+	HideCkEditor();
+}
+
+if (!showPreview) {
+	HidePreview();
+}
+
+SyncEditors();
+
+//#region Drag & Resize
 /* let isLeftDragging = false;
 let isRightDragging = false;
 
@@ -477,3 +511,4 @@ function OnDrag(event) {
 		event.preventDefault();
 	}
 } */
+//#endregion

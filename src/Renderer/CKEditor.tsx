@@ -28,6 +28,7 @@ import {
 } from "ckeditor5";
 
 import "ckeditor5/ckeditor5.css";
+import "./styles/ckeditor.scss";
 
 export async function CreateCkeditor(element: HTMLElement): Promise<ClassicEditor> {
 	const editor = await ClassicEditor.create(element, {
@@ -140,6 +141,13 @@ export async function CreateCkeditor(element: HTMLElement): Promise<ClassicEdito
 		},
 		table: {
 			contentToolbar: ["tableColumn", "tableRow", "mergeTableCells"],
+		},
+		ui: {
+			//@ts-expect-error
+			poweredBy: {
+				label: "",
+				// side: "right",
+			},
 		},
 	});
 

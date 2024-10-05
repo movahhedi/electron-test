@@ -14,8 +14,6 @@
 // .markdown-body {
 body {
 	padding: 20px;
-	unicode-bidi: isolate;
-
 	color-scheme: dark;
 	-ms-text-size-adjust: 100%;
 	-webkit-text-size-adjust: 100%;
@@ -47,6 +45,10 @@ body {
 		display: table;
 		clear: both;
 		content: "";
+	}
+
+	* {
+		unicode-bidi: plaintext;
 	}
 
 	.octicon {

@@ -1,4 +1,6 @@
+@use "./Config.scss" as *;
 @import "./Reset";
+@import "./ckeditor";
 // @import "./article";
 
 html, body {
@@ -19,12 +21,16 @@ body {
 
 .ck-editor {
 	// height: inherit;
-	// max-height: inherit;
 	height: 100%;
 	// display: flex;
 	// flex-direction: column;
 	display: grid;
 	grid-template-rows: auto 1fr;
+
+	font-family: $Font-Persian;
+
+	color: white;
+
 }
 
 .ck.ck-reset {
@@ -32,10 +38,15 @@ body {
 	// max-height: inherit;
 }
 
-.ck-content {
+.ck-content, .ck-source-editing-area {
 	height: 100% !important;
 	// max-height: inherit;
+	max-height: 89vh;
 	overflow: scroll;
+}
+.ck-source-editing-area {
+	max-height: 84vh;
+	overflow: auto;
 }
 .ck-editor__editable {
 	height: 100% !important;
@@ -49,4 +60,15 @@ body {
 }
 .ck-source-editing-area textarea {
 	font-family: Consolas, "Vazir Code", monospace !important;
+}
+
+.ck-powered-by {
+	display: none !important;
+}
+
+.ck-source-editing-area textarea {
+	background-color: #1e1e1e;
+	color: white;
+	padding-bottom: 50px;
+	line-height: 1;
 }

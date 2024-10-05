@@ -48,10 +48,6 @@ async function HandleFileSave(
 	event: Electron.IpcMainInvokeEvent,
 	props: IFile,
 ): Promise<void> {
-	// console.log(arguments);
-	console.log("Saving file to", props.path);
-	console.log("Content", props.content);
-
 	await Fs.promises.writeFile(props.path, props.content, "utf-8");
 
 	// return "Done";
